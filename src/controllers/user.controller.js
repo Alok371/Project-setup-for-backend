@@ -18,11 +18,13 @@ const registerUser = asyncHandler(async (req, res) => {
     //return response
 
     const { fullName, email, username, password } = req.body;
-    // console.log("email", email);
+
+    // Check if any of the fields (fullName, email, username, password)
+    // are empty or contain only whitespace characters. If any field is
     if (
         [fullName, email, username, password].some((field) => field?.trim() === "")
     ) {
-        throw new ApiError(400, "ALl fields required");
+        throw new ApiError(400, "ALl fields required"); // empty, throw an ApiError with status code 400 and message "All fields required".
     }
 
     const existerUser = await User.findOne({
@@ -33,13 +35,23 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(409, "User with email or username already exists");
     }
     console.log(req.files);
-    const avatarLocalPath = req.files?.avatar[0]?.path;
-    // const coverImageLocalPath = req.files?.coverImage[0]?.path;
 
+    // Extract the local path of the avatar file from the request object.
+    // The optional chaining operator (?.) is used to safely access nested
+    // properties. If any of the properties along the chain are null or
+    // undefined, the expression will result in undefined.
+    const avatarLocalPath = req.files?.avatar[0]?.path;
+
+
+    // Check if 'req.files' exists and if 'req.files.coverImage' is an array with at least one element.
+    // If both conditions are met, assign the local path of the first cover image file to 'coverImageLocalPath'.
+    // This ensures that 'coverImageLocalPath' is assigned only if 'req.files.coverImage' is not null, 
+    // is an array, and has at least one element, avoiding potential errors when accessing properties.
     let coverImageLocalPath;
     if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
         coverImageLocalPath = req.files.coverImage[0].path
     }
+
     if (!avatarLocalPath) {
         throw new ApiError(400, "Avatar file is required");
     }
