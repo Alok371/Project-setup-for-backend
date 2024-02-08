@@ -47,41 +47,61 @@ const userSchema = new Schema({
 }, { timestamps: true });
 
 userSchema.pre("save", async function (next) {
-    if (this.isModified("password")) return next();
-
-    this.password = await bcrypt.hash(this.password, 10);
-    next();
-});
+    const user = this;
+    if (!user.isModified('password')) {
+        return next();
+    }
+    try {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(user.password, salt);
+        user.password = hashedPassword;
+        next();
+    } catch (error) {
+        next(error);
+    }
+})
 
 userSchema.methods.isPasswordCorrect = async function (password) {
+    console.log(password);
+    console.log(this.password);
     return await bcrypt.compare(password, this.password);
 }
 
 userSchema.methods.generateAccessToken = function () {
-    return jwt.sign(
-        {
-            _id: this._id,
-            email: this.email,
-            username: this.username,
-            fullName: this.fullName,
-        },
-        process.env.ACCESS_TOKEN_SECRET,
-        {
-            expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
-        }
-    )
+    try {
+        return jwt.sign(
+            {
+                _id: this._id,
+                email: this.email,
+                username: this.username,
+                fullName: this.fullName,
+            },
+            process.env.ACCESS_TOKEN_SECRET,
+            {
+                expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
+            }
+        );
+    } catch (error) {
+        console.error("Error generating access token:", error);
+        return null; // Return null indicating failure to generate access token
+    }
 }
 
 userSchema.methods.generateRefreshToken = function () {
-    return jwt.sign(
-        {
-            _id: this._id,
-        },
-        process.env.REFRESH_TOKEN_SECRET,
-        {
-            expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
-        }
-    )
+    try {
+        return jwt.sign(
+            {
+                _id: this._id,
+            },
+            process.env.REFRESH_TOKEN_SECRET,
+            {
+                expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
+            }
+        );
+    } catch (error) {
+        console.error("Error generating refresh token:", error);
+        return null; // Return null indicating failure to generate refresh token
+    }
 }
 
 export const User = mongoose.model('User', userSchema);

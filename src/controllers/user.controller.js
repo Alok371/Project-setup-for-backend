@@ -1,10 +1,8 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
-
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-
 
 const generateAccessAndRefreshTokens = async (userId) => {
     try {
@@ -18,9 +16,10 @@ const generateAccessAndRefreshTokens = async (userId) => {
         return { accessToken, refreshToken }
 
     } catch (error) {
-        throw new ApiError(500, "Something went wrong while generating refresh and acces token")
+        throw new ApiError(500, "Something went wrong while generating referesh and access token")
     }
 }
+
 
 const registerUser = asyncHandler(async (req, res) => {
     //get user details from frontend
@@ -43,14 +42,14 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(400, "ALl fields required"); // empty, throw an ApiError with status code 400 and message "All fields required".
     }
 
-    const existerUser = await User.findOne({
+    const existedUser = await User.findOne({
         $or: [{ username }, { email }]
     });
 
-    if (existerUser) {
+    if (existedUser) {
         throw new ApiError(409, "User with email or username already exists");
     }
-    console.log(req.files);
+    // console.log(req.files);
 
     // Extract the local path of the avatar file from the request object.
     // The optional chaining operator (?.) is used to safely access nested
@@ -101,35 +100,41 @@ const registerUser = asyncHandler(async (req, res) => {
 })
 
 const loginUser = asyncHandler(async (req, res) => {
-    //req body -> data
-    //username or email
+    // req body -> data
+    // username or email
     //find the user
     //password check
-    //access and refresh token
+    //access and referesh token
     //send cookie
 
-
     const { email, username, password } = req.body
-    if (!username || !email) {
+    console.log(email);
+
+    if (!username && !email) {
         throw new ApiError(400, "username or email is required")
     }
 
-    //find user
+    // Here is an alternative of above code based on logic discussed in video:
+    // if (!(username || email)) {
+    //     throw new ApiError(400, "username or email is required")
+
+    // }
+
     const user = await User.findOne({
         $or: [{ username }, { email }]
     })
 
     if (!user) {
-        throw new ApiError(404, "User doesnot Exist")
+        throw new ApiError(404, "User does not exist")
     }
 
-    //check password
     const isPasswordValid = await user.isPasswordCorrect(password)
+
     if (!isPasswordValid) {
-        throw new ApiError(401, "Password Incorrect")
+        throw new ApiError(401, "Invalid user credentials")
     }
 
-    const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id)
+    const { accessToken, refreshToken: newRefreshToken } = await generateAccessAndRefreshTokens(user._id);
 
     const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
 
@@ -138,12 +143,20 @@ const loginUser = asyncHandler(async (req, res) => {
         secure: true
     }
 
-    return res.status(200).cookie("accessToken", accessToken, options).cookie("refreshToken", refreshToken, options).json(new ApiResponse(200, {
-        user: loggedInUser, accessToken, refreshToken
-    },
-        "user logged in Successfully"
-    )
-    )
+    return res
+        .status(200)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", newRefreshToken, options)
+        .json(
+            new ApiResponse(
+                200,
+                {
+                    user: loggedInUser, accessToken, refreshToken: newRefreshToken
+                },
+                "User logged In Successfully"
+            )
+        )
+
 })
 
 const logoutUser = asyncHandler(async (req, res) => {
